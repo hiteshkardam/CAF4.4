@@ -24,6 +24,7 @@ source "drivers/gpu/ipu-v3/Kconfig"
 source "drivers/gpu/msm/Kconfig"
 
 source "drivers/gpu/drm/Kconfig"
+source "drivers/video/slimport/Kconfig"
 
 source "drivers/video/msm/ba/Kconfig"
 menu "Frame buffer Devices"
@@ -52,5 +53,11 @@ if FB || SGI_NEWPORT_CONSOLE
 
 endif
 
+config FB_MINIFB
+	bool "Mini FB support"
+	depends on ION
+	default y if FB_MSM
+	---help---
+	  This is a `virtual' frame buffer device for some specific usage.
 
 endmenu

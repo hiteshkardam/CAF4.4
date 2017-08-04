@@ -49,6 +49,7 @@
 
 #define LPASS_BE_MI2S_RX "MI2S_RX"
 #define LPASS_BE_MI2S_TX "MI2S_TX"
+#define LPASS_BE_QUAT_MI2S "QUAT_MI2S" //HTC_AUD
 #define LPASS_BE_QUAT_MI2S_RX "QUAT_MI2S_RX"
 #define LPASS_BE_QUAT_MI2S_TX "QUAT_MI2S_TX"
 #define LPASS_BE_SEC_MI2S_RX "SEC_MI2S_RX"
@@ -75,6 +76,7 @@
 #define LPASS_BE_SLIMBUS_5_TX "SLIMBUS_5_TX"
 #define LPASS_BE_SLIMBUS_6_RX "SLIMBUS_6_RX"
 #define LPASS_BE_SLIMBUS_6_TX "SLIMBUS_6_TX"
+#define LPASS_BE_SLIMBUS_5_RX "SLIMBUS_5_RX"
 #define LPASS_BE_QUIN_MI2S_RX "QUIN_MI2S_RX"
 #define LPASS_BE_QUIN_MI2S_TX "QUIN_MI2S_TX"
 #define LPASS_BE_SENARY_MI2S_TX "SENARY_MI2S_TX"
@@ -223,8 +225,8 @@ enum {
 	MSM_FRONTEND_DAI_MAX,
 };
 
-#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA25 + 1)
-#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA25
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA16 + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA16
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
@@ -277,6 +279,12 @@ enum {
 	MSM_BACKEND_DAI_AUDIO_I2S_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+	MSM_BACKEND_DAI_TERT_AUXPCM_RX,
+	MSM_BACKEND_DAI_TERT_AUXPCM_TX,
+	MSM_BACKEND_DAI_QUAT_AUXPCM_RX,
+	MSM_BACKEND_DAI_QUAT_AUXPCM_TX,
+	MSM_BACKEND_DAI_SLIMBUS_6_RX,
+	MSM_BACKEND_DAI_SLIMBUS_6_TX,
 	MSM_BACKEND_DAI_SPDIF_RX,
 	MSM_BACKEND_DAI_SECONDARY_MI2S_RX_SD1,
 	MSM_BACKEND_DAI_QUINARY_MI2S_RX,
@@ -454,6 +462,25 @@ struct msm_pcm_stream_app_type_cfg {
 	int sample_rate;
 };
 
+//HTC_AUD_START
+struct htc_adm_effect_s {
+	u16 used;
+	u16 port_id;
+	uint32_t copp_id;
+	uint32_t payload_size;
+	void *payload;
+};
+
+enum HTC_ADM_EFFECT_ID {
+	HTC_ADM_EFFECT_ADAPTIVEAUDIO_DATA1 = 0,
+	HTC_ADM_EFFECT_ADAPTIVEAUDIO_DATA2,
+	HTC_ADM_EFFECT_ONEDOTONE,
+	HTC_ADM_EFFECT_ONEDOTONE_MUTE,
+	HTC_ADM_EFFECT_ONEDOTONE_RAMPING,
+	HTC_ADM_EFFECT_MAX,
+};
+//HTC_AUD_END
+
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
@@ -490,4 +517,9 @@ int msm_pcm_routing_get_stream_app_type_cfg(
 	struct msm_pcm_stream_app_type_cfg *cfg_data);
 int msm_routing_set_downmix_control_data(int be_id, int session_id,
 				 struct asm_stream_pan_ctrl_params *pan_param);
+//HTC_AUD_START
+int htc_adm_effect_control(enum HTC_ADM_EFFECT_ID effect_id, u16 port_id, uint32_t copp_id,
+					uint32_t payload_size, void *payload);
+ushort get_adm_custom_effect_status(void);
+//HTC_AUD_END
 #endif /*_MSM_PCM_H*/

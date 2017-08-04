@@ -46,6 +46,7 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
+#include <linux/htc_flags.h>
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -161,6 +162,59 @@ struct diag_apps_data_t {
 static struct diag_apps_data_t hdlc_data;
 static struct diag_apps_data_t non_hdlc_data;
 static struct mutex apps_data_mutex;
+/*++ 2015/10/26, USB Team, PCN00033 ++*/
+int diag_rb_enable = 0;
+/*-- 2015/10/26, USB Team, PCN00033 --*/
+/*++ 2015/10/26, USB Team, PCN00033 ++*/
+static ssize_t show_diag_rb(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int p = 0;
+	p += sprintf(buf+p, "diag_rb_enable=%d\n", diag_rb_enable);
+	return p;
+}
+
+/*
+ * diag_rb_enable:
+ * bit0: User trial ROM
+ */
+
+static ssize_t store_diag_rb(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long u = 0;
+	ret = kstrtoul(buf, 10, (unsigned long *)&u);
+	if (ret < 0)
+		return ret;
+	if (u > 0) {
+		diag_rb_enable = u;
+	} else {
+		/*
+		 * Once we need to disable diag_rb_dump feature, we should clear memory
+		 * map when we finish dumping (show_diag_rb_dump)
+		 */
+		diag_rb_enable = 0;
+	}
+	return count;
+}
+/*-- 2015/10/26, USB Team, PCN00033 --*/
+
+static DEVICE_ATTR(diag_reg_table, 0664,
+	show_diag_registration, store_registration_index);
+static DEVICE_ATTR(diag7k_debug_mask, 0664,
+	show_diag_debug_mask, store_diag7k_debug_mask);
+static DEVICE_ATTR(diag9k_debug_mask, 0664,
+	show_diag_debug_mask, store_diag9k_debug_mask);
+/*++ 2015/10/26, USB Team, PCN00033 ++*/
+static DEVICE_ATTR(diag_rb, 0664,
+	show_diag_rb, store_diag_rb);
+/*-- 2015/10/26, USB Team, PCN00033 --*/
+
+#include "diagfwd_htc.c"
+
+/* delayed_rsp_id 0 represents no delay in the response. Any other number
+ * means that the diag packet has a delayed response. */
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
@@ -315,6 +369,9 @@ static int diagchar_open(struct inode *inode, struct file *file)
 {
 	int i = 0;
 	void *temp;
+
+	DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
+		current->comm, current->parent->comm, current->tgid);
 
 	if (driver) {
 		mutex_lock(&driver->diagchar_mutex);
@@ -1218,6 +1275,8 @@ static int mask_request_validate(unsigned char mask_buf[])
 			if ((ss_cmd == 0) || (ss_cmd == 0x1))
 				return 1;
 			break;
+		case 0x0B: /* DIAG_SUBSYS_FTM */
+			return 1;
 		default:
 			return 0;
 			break;
@@ -1228,6 +1287,15 @@ static int mask_request_validate(unsigned char mask_buf[])
 		case 0x0C:    /* CDMA status packet */
 		case 0x1C:    /* Diag Version */
 		case 0x1D:    /* Time Stamp */
+		case 0x20:    /* Write fbiBER_Threshold */
+		case 0x26:    /* Nonvolatile item read */
+		case 0x27:    /* Nonvolatile item write */
+		case 0x29:    /* Mode change */
+		case 0x35:    /* Call Origination Request Message */
+		case 0x36:    /* Call End */
+		case 0x40:    /* Pilot Sets */
+		case 0x41:    /* Service programming code */
+		case 0x4B:    /* Subsystem Dispatch */
 		case 0x60:    /* Event Report Control */
 		case 0x63:    /* Status snapshot */
 		case 0x73:    /* Logging Configuration */
@@ -2233,6 +2301,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	struct diag_dci_client_tbl *dci_client = NULL;
 	struct diag_logging_mode_param_t mode_param;
 
+	DIAG_INFO("%s:%s(parent:%s): tgid=%d, iocmd=%d, ioarg=%d\n", __func__,
+		current->comm, current->parent->comm, current->tgid, (int)iocmd, (int)ioarg);
+
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
 		result = diag_ioctl_cmd_reg_compat(ioarg);
@@ -2363,6 +2434,10 @@ long diagchar_ioctl(struct file *filp,
 	uint16_t remote_dev;
 	struct diag_dci_client_tbl *dci_client = NULL;
 	struct diag_logging_mode_param_t mode_param;
+
+	DIAG_INFO("%s:%s(parent:%s): tgid=%d, iocmd=%d, ioarg=%d\n", __func__,
+		current->comm, current->parent->comm,
+		current->tgid, (int)iocmd, (int)ioarg);
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -2858,6 +2933,13 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 		return -EIO;
 	}
 
+	if (diag7k_debug_mask) {
+		DIAG_INFO("diag: user space data %d\n", len);
+		print_hex_dump(KERN_INFO, "write packet data"
+			" to modem(first 16 bytes)", 16, 1,
+			DUMP_PREFIX_ADDRESS, driver->user_space_data_buf, 16, 1);
+	}
+
 	/* Check for proc_type */
 	remote_proc = diag_get_remote(*(int *)driver->user_space_data_buf);
 	if (remote_proc) {
@@ -3054,6 +3136,20 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/* In case, the thread wakes up and the logging mode is
 		not memory device any more, the condition needs to be cleared */
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+	} else if (driver->data_ready[index] & USERMODE_DIAGFWD) {
+		/*Copy the type of data being passed*/
+		if (strncmp(current->comm, "diag_mdlog", 10) == 0
+			|| strncmp(current->comm, "diag_socket_log", 15) == 0)
+			data_type = USER_SPACE_DATA_TYPE;
+		else
+			data_type = USERMODE_DIAGFWD;
+
+		driver->data_ready[index] ^= USERMODE_DIAGFWD;
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
+		/* place holder for number of data field */
+		ret += sizeof(int);
+		exit_stat = diag_md_copy_to_user(buf, &ret, count, session_info);
+		goto exit;
 	}
 
 	if (driver->data_ready[index] & HDLC_SUPPORT_TYPE) {
@@ -3271,6 +3367,12 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 	else if (pkt_type == USER_SPACE_DATA_TYPE)
 		return diag_user_process_userspace_data(payload_buf,
 							payload_len);
+	else if (Ispidequalcurid()
+			&& ((strncmp(current->comm, "htc58diag", 9) == 0)
+			|| (strncmp(current->comm, "diagloader", 10) == 0)
+			|| (strncmp(current->comm, "htcmodulediag", 13) == 0)))
+		return diag_user_process_userspace_data(payload_buf, payload_len);
+
 	if (pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) {
 		err = diag_user_process_dci_apps_data(payload_buf, payload_len,
 						      pkt_type);
@@ -3563,6 +3665,12 @@ static int diagchar_setup_cdev(dev_t devno)
 	if (!driver->diag_dev)
 		return -EIO;
 
+/*++ 2015/10/26, USB Team, PCN00033 ++*/
+	err = device_create_file(driver->diag_dev, &dev_attr_diag_rb);
+	if (err)
+		DIAG_INFO("dev_attr_diag_rb registration failed !\n\n");
+/*-- 2015/10/26, USB Team, PCN00033 --*/
+
 	driver->diag_dev->power.wakeup = wakeup_source_register("DIAG_WS");
 	return 0;
 
@@ -3570,6 +3678,9 @@ static int diagchar_setup_cdev(dev_t devno)
 
 static int diagchar_cleanup(void)
 {
+	DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
+		current->comm, current->parent->comm, current->tgid);
+
 	if (driver) {
 		if (driver->cdev) {
 			/* TODO - Check if device exists before deleting */
@@ -3712,7 +3823,7 @@ static int __init diagchar_init(void)
 	if (error)
 		goto fail;
 
-	pr_debug("diagchar initialized now");
+	DIAG_INFO("diagchar initialized now");
 	ret = diagfwd_bridge_init();
 	if (ret)
 		diagfwd_bridge_exit();

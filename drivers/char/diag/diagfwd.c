@@ -49,6 +49,12 @@
 #define STM_RSP_STATUS_INDEX		8
 #define STM_RSP_NUM_BYTES		9
 
+#define SMD_DRAIN_BUF_SIZE 4096
+extern unsigned diag7k_debug_mask;
+extern unsigned diag9k_debug_mask;
+int diag_debug_buf_idx;
+unsigned char diag_debug_buf[1024];
+
 static int timestamp_switch;
 module_param(timestamp_switch, int, 0644);
 
@@ -154,6 +160,7 @@ int chk_apps_only(void)
 	case MSM_CPU_8627:
 	case MSM_CPU_9615:
 	case MSM_CPU_8974:
+	case MSM_CPU_8996:/*++ 2015/07/14, USB Team, PCN00012 ++*/
 		return 1;
 	default:
 		return 0;
@@ -225,7 +232,7 @@ void chk_logging_wakeup(void)
 			 * their data read/logged. Detect and remedy this
 			 * situation.
 			 */
-			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
+			driver->data_ready[i] |= USERMODE_DIAGFWD;
 			pr_debug("diag: Force wakeup of logging process\n");
 			wake_up_interruptible(&driver->wait_q);
 			break;

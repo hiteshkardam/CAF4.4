@@ -572,6 +572,18 @@ config USB_CONFIGFS_F_CCID
 	help
 	  USB CCID function driver creats transport layer between the
 	  userspace CCID component and the Windows Host.
+	  
+config MODEM_SUPPORT
+	boolean "modem support in generic serial function driver"
+	depends on USB_G_ANDROID
+	default y
+	help
+	  This feature enables the modem functionality in the
+	  generic serial. adds interrupt endpoint support to
+	  send modem notifications to host. adds CDC descriptors
+	  to enumerate the generic serial as MODEM. adds CDC class
+	  requests to configure MODEM line settings. Say "y" to
+	  enable MODEM support in the generic serial driver.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

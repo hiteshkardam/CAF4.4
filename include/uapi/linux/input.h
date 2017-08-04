@@ -529,4 +529,11 @@ struct ff_effect {
 #define FF_MAX		0x7f
 #define FF_CNT		(FF_MAX+1)
 
+#define KEY_APP_SWITCH		249	/* key for list app*/
+#define HALL_N_POLE             251     /* HALL Sensor N pole*/
+#define HALL_S_POLE             252     /* HALL Sensor S pole*/
+#define ABS_MT_POSITION     0x2a    /* Group a set of X and Y */
+#define ABS_MT_AMPLITUDE    0x2b    /* Group a set of Z and W */
+#define ABS_MT_GLOVE		0x3e
+
 #endif /* _UAPI_INPUT_H */

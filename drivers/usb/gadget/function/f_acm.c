@@ -74,6 +74,7 @@ struct f_acm {
 #define ACM_CTRL_DCD		(1 << 0)
 };
 
+#define GSERIAL_NO_PORTS 8 /*++ 2015/06/23 USB Team, PCN00004 ++*/
 static inline struct f_acm *func_to_acm(struct usb_function *f)
 {
 	return container_of(f, struct f_acm, port.func);
@@ -610,7 +611,7 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct f_acm		*acm = func_to_acm(f);
-	struct usb_string	*us;
+	static struct usb_string	*us; /*++ 2016/01/26 USB Team, PCN00061 ++*/
 	int			status;
 	struct usb_ep		*ep;
 
@@ -619,8 +620,12 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 
 	/* maybe allocate device-global string IDs, and patch descriptors */
+/*++ 2016/01/26 USB Team, PCN00061 ++*/
+	/* Don't reset the ncm string ID */
+	if (!us)
 	us = usb_gstrings_attach(cdev, acm_strings,
 			ARRAY_SIZE(acm_string_defs));
+/*-- 2016/01/26 USB Team, PCN00061 --*/
 	if (IS_ERR(us))
 		return PTR_ERR(us);
 	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;

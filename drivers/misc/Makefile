@@ -2,6 +2,7 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
+obj-$(CONFIG_VIB_TRIGGERS)	+= vib-triggers.o
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o
 obj-$(CONFIG_AD525X_DPOT_I2C)	+= ad525x_dpot-i2c.o
@@ -64,5 +65,9 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_UID_SYS_STATS) += uid_sys_stats.o
 obj-y				+= qcom/
+#HTC_AUD_START
+#obj-y				+= headset/
+obj-$(CONFIG_RT_REGMAP) += rt-regmap.o
+obj-$(CONFIG_HTC_FLASHLIGHT) += htc_flashlight.o
 obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o

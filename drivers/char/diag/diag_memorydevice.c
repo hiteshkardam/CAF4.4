@@ -144,13 +144,11 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	if (!buf || len < 0)
 		return -EINVAL;
 
-	peripheral =
-		diag_md_get_peripheral(ctx);
-	if (peripheral < 0)
+	peripheral = GET_BUF_PERIPHERAL(ctx);
+	if (peripheral > NUM_PERIPHERALS)
 		return -EINVAL;
 
-	session_info =
-		diag_md_session_get_peripheral(peripheral);
+	session_info = diag_md_session_get_peripheral(peripheral);
 	if (!session_info)
 		return -EIO;
 
@@ -196,7 +194,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 			continue;
 
 		found = 1;
-		driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
+		driver->data_ready[i] |= USERMODE_DIAGFWD;
 		pr_debug("diag: wake up logging process\n");
 		wake_up_interruptible(&driver->wait_q);
 	}
@@ -221,7 +219,6 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	uint8_t drain_again = 0;
 	uint8_t peripheral = 0;
 	struct diag_md_session_t *session_info = NULL;
-	struct pid *pid_struct = NULL;
 
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
@@ -229,31 +226,18 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
 				continue;
-
-			peripheral = diag_md_get_peripheral(entry->ctx);
-			if (peripheral < 0)
+			peripheral = GET_BUF_PERIPHERAL(entry->ctx);
+			/* Account for Apps data as well */
+			if (peripheral > NUM_PERIPHERALS)
 				goto drop_data;
-
 			session_info =
 			diag_md_session_get_peripheral(peripheral);
-			if (!session_info) {
-				goto drop_data;
-			}
-
 			if (session_info && info &&
 				(session_info->pid != info->pid))
 				continue;
 			if ((info && (info->peripheral_mask &
 			    MD_PERIPHERAL_MASK(peripheral)) == 0))
 				goto drop_data;
-			pid_struct = find_get_pid(session_info->pid);
-			if (!pid_struct) {
-				err = -ESRCH;
-				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-					"diag: No such md_session_map[%d] with pid = %d err=%d exists..\n",
-					peripheral, session_info->pid, err);
-				goto drop_data;
-			}
 			/*
 			 * If the data is from remote processor, copy the remote
 			 * token first
@@ -273,35 +257,27 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			}
 			if (i > 0) {
 				remote_token = diag_get_remote(i);
-				if (get_pid_task(pid_struct, PIDTYPE_PID)) {
-					err = copy_to_user(buf + ret,
-							&remote_token,
-							sizeof(int));
-					if (err)
-						goto drop_data;
-					ret += sizeof(int);
-				}
-			}
-
-			/* Copy the length of data being passed */
-			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
-				err = copy_to_user(buf + ret,
-						(void *)&(entry->len),
-						sizeof(int));
+				err = copy_to_user(buf + ret, &remote_token,
+						   sizeof(int));
 				if (err)
 					goto drop_data;
 				ret += sizeof(int);
 			}
 
+			/* Copy the length of data being passed */
+			err = copy_to_user(buf + ret, (void *)&(entry->len),
+					   sizeof(int));
+			if (err)
+				goto drop_data;
+			ret += sizeof(int);
+
 			/* Copy the actual data being passed */
-			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
-				err = copy_to_user(buf + ret,
-						(void *)entry->buf,
-						entry->len);
-				if (err)
-					goto drop_data;
-				ret += entry->len;
-			}
+			err = copy_to_user(buf + ret, (void *)entry->buf,
+					   entry->len);
+			if (err)
+				goto drop_data;
+			ret += entry->len;
+
 			/*
 			 * The data is now copied to the user space client,
 			 * Notify that the write is complete and delete its
@@ -323,11 +299,7 @@ drop_data:
 	}
 
 	*pret = ret;
-	if (pid_struct && get_pid_task(pid_struct, PIDTYPE_PID)) {
-		err = copy_to_user(buf + sizeof(int),
-				(void *)&num_data,
-				sizeof(int));
-	}
+	err = copy_to_user(buf + sizeof(int), (void *)&num_data, sizeof(int));
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)
 		chk_logging_wakeup();
@@ -351,15 +323,8 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
 		entry = &ch->tbl[i];
-
-		if (peripheral > NUM_PERIPHERALS) {
-			if (GET_PD_CTXT(entry->ctx) != peripheral)
-				continue;
-		} else {
-			if (GET_BUF_PERIPHERAL(entry->ctx) !=
-					peripheral)
-				continue;
-		}
+		if (GET_BUF_PERIPHERAL(entry->ctx) != peripheral)
+			continue;
 		found = 1;
 		if (ch->ops && ch->ops->write_done) {
 			ch->ops->write_done(entry->buf, entry->len,

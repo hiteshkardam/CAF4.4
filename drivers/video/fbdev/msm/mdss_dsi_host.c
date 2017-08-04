@@ -60,7 +60,7 @@ struct mdss_hw mdss_dsi1_hw = {
 };
 
 
-#define DSI_EVENT_Q_MAX	4
+#define DSI_EVENT_Q_MAX	16
 
 #define DSI_BTA_EVENT_TIMEOUT (HZ / 10)
 
@@ -805,6 +805,9 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		ctrl0 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
 		ctrl1 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_1);
 
+		if (ctrl0->recovery)
+			ctrl0->recovery->fxn(ctrl0->recovery->data,
+					MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW);
 		/*
 		 * Disable PHY contention detection and receive.
 		 * Configure the strength ctrl 1 register.
@@ -903,6 +906,9 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		 */
 		udelay(200);
 	} else {
+		if (ctrl->recovery)
+			ctrl->recovery->fxn(ctrl->recovery->data,
+					MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW);
 		/* Disable PHY contention detection and receive */
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0188, 0);
 
@@ -2489,6 +2495,23 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 }
 
+static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int ret = 0;
+
+	if (ctrl->panel_mode == DSI_CMD_MODE)
+		return ret;
+
+	if (ctrl->ctrl_state & CTRL_STATE_MDP_ACTIVE) {
+		mdss_dsi_wait4video_done(ctrl);
+		/* delay 4 ms to skip BLLP */
+		usleep_range(4000, 4000);
+		ret = 1;
+	}
+
+	return ret;
+}
+
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flag;
@@ -2508,6 +2531,7 @@ static int mdss_dsi_mdp_busy_tout_check(struct mdss_dsi_ctrl_pdata *ctrl)
 	bool stop_hs_clk = false;
 	int tout = 1;
 
+	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid, 0xbadf);
 	/*
 	 * two possible scenario:
 	 * 1) DSI_INTR_CMD_MDP_DONE set but isr not fired
@@ -2572,8 +2596,24 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 		if (!ctrl->mdp_busy)
 			rc = 1;
 		spin_unlock_irqrestore(&ctrl->mdp_lock, flags);
-		if (!rc && mdss_dsi_mdp_busy_tout_check(ctrl))
-			pr_err("%s: timeout error\n", __func__);
+		if (!rc) {
+			if (mdss_dsi_mdp_busy_tout_check(ctrl)) {
+				u32 status;
+				struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+				status = readl_relaxed(mdata->mdp_base + MDSS_REG_HW_INTR2_STATUS);
+				pr_err("%s: timeout error, TE ISR status=0x%x\n", __func__, status);
+				if (status & 0x1100000) {
+					MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+						"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+						"vbif", "vbif_nrt", "dbg_bus",
+						"vbif_dbg_bus", "panic");
+				} else {
+					MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+						"dsi0_phy", "dsi1_ctrl", "dsi1_phy");
+				}
+			}
+		}
 	}
 	pr_debug("%s: done pid=%d\n", __func__, current->pid);
 	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid, XLOG_FUNC_EXIT);

@@ -352,6 +352,7 @@ enum {
 	AUDIO_NOMINAL,
 	CPE_NOMINAL,
 	HPH_PA_DELAY,
+	SB_CLK_GEAR,
 	ANC_MIC_AMIC1,
 	ANC_MIC_AMIC2,
 	ANC_MIC_AMIC3,
@@ -3183,7 +3184,10 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		tasha_codec_vote_max_bw(codec, true);
+		if (!test_bit(SB_CLK_GEAR, &tasha_p->status_mask)) {
+			tasha_codec_vote_max_bw(codec, true);
+			set_bit(SB_CLK_GEAR, &tasha_p->status_mask);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
@@ -4972,7 +4976,13 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 					 int src_num,
 					 int event)
 {
+/* HTC_AUD_START Fix Klockwork */
+#if 0
+	u16 src_paired_reg;
+#else
 	u16 src_paired_reg = 0;
+#endif
+/* HTC_AUD_END */
 	struct tasha_priv *tasha;
 	u16 rx_path_cfg_reg = WCD9335_CDC_RX1_RX_PATH_CFG0;
 	u16 rx_path_ctl_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
@@ -5495,7 +5505,10 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		tasha_codec_vote_max_bw(codec, true);
+		if (!test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
+			tasha_codec_vote_max_bw(codec, true);
+			set_bit(SB_CLK_GEAR, &tasha->status_mask);
+		}
 		/* Reset if needed */
 		tasha_codec_enable_prim_interpolator(codec, reg, event);
 		break;
@@ -5930,6 +5943,8 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 					    CF_MIN_3DB_150HZ << 5);
 		/* Enable TX PGA Mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		/* Enable APC */
+		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x08);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
@@ -5956,6 +5971,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		hpf_cut_off_freq =
 			tasha->tx_hpf_work[decimator].hpf_cut_off_freq;
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x00);
 		if (cancel_delayed_work_sync(
 		    &tasha->tx_hpf_work[decimator].dwork)) {
 			if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
@@ -11356,8 +11372,11 @@ static void tasha_shutdown(struct snd_pcm_substream *substream,
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
 		return;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+	    test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
 		tasha_codec_vote_max_bw(dai->codec, false);
+		clear_bit(SB_CLK_GEAR, &tasha->status_mask);
+	}
 }
 
 static int tasha_set_decimator_rate(struct snd_soc_dai *dai,
@@ -11592,11 +11611,15 @@ prim_rate:
 static int tasha_prepare(struct snd_pcm_substream *substream,
 			 struct snd_soc_dai *dai)
 {
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(dai->codec);
+
 	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
 		 substream->name, substream->stream);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+	    test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
 		tasha_codec_vote_max_bw(dai->codec, false);
+		clear_bit(SB_CLK_GEAR, &tasha->status_mask);
+	}
 	return 0;
 }
 

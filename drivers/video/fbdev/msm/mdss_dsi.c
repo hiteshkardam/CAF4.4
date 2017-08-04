@@ -383,15 +383,19 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		ret = 0;
 	}
 
-	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+	/* HTC: At power off stage, move pin contrl function behind power off sequence */
+	/* if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
-
+	*/
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 0);
 	if (ret)
 		pr_err("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+	/* HTC: At power off stage, move pin contrl function behind power off sequenc */
+	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+		pr_debug("reset disable: pinctrl not enabled\n");
 
 end:
 	return ret;
@@ -409,6 +413,10 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+
+	/* HTC: At power on stage, use pin contrl function before starting power on sequence */
+	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+		pr_debug("reset disable: pinctrl not enabled\n");
 
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
@@ -1561,13 +1569,24 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * data lanes for LP11 init
 	 */
 	if (mipi->lp11_init) {
-		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+		/* HTC: At power on stage, use pin contrl function before starting power on sequence */
+		/* if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
+		*/
 		mdss_dsi_panel_reset(pdata, 1);
 	}
 
 	if (mipi->init_delay)
 		usleep_range(mipi->init_delay, mipi->init_delay);
+
+	if (mipi->force_clk_lane_hs) {
+		u32 tmp;
+
+		tmp = MIPI_INP((ctrl_pdata->ctrl_base) + 0xac);
+		tmp |= (1<<28);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xac, tmp);
+		wmb();
+	}
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
 		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
@@ -1697,8 +1716,11 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
 		mipi->vsync_enable && mipi->hw_vsync_mode) {
 		mdss_dsi_set_tear_on(ctrl_pdata);
+#if 0
+		/* VSYNC_GPIO irq was managed by mdss_dsi_status */
 		if (mdss_dsi_is_te_based_esd(ctrl_pdata))
 			enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+#endif
 	}
 
 	ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
@@ -1768,11 +1790,14 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
 		mipi->vsync_enable && mipi->hw_vsync_mode) {
+#if 0
+		/* VSYNC_GPIO irq was managed by mdss_dsi_status */
 		if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
-				disable_irq(gpio_to_irq(
-					ctrl_pdata->disp_te_gpio));
-				atomic_dec(&ctrl_pdata->te_irq_ready);
+			disable_irq(gpio_to_irq(
+				ctrl_pdata->disp_te_gpio));
+			atomic_set(&ctrl_pdata->te_irq_ready, 0);
 		}
+#endif
 		mdss_dsi_set_tear_off(ctrl_pdata);
 	}
 
@@ -2674,6 +2699,8 @@ static void mdss_dsi_timing_db_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
 	MIPI_OUTP((ctrl->ctrl_base + 0x1e8), enable);
 	wmb(); /* ensure timing db is disabled */
+	MIPI_OUTP((ctrl->ctrl_base + 0x1e4), enable);
+	wmb(); /* ensure timing flush is disabled */
 	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
 		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
 }
