@@ -255,6 +255,25 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 	sdm630-headset-jacktype-no-rcm.dtb \
 	sdm630-pm660a-headset-jacktype-no-cdp.dtb \
 	sdm630-pm660a-headset-jacktype-no-rcm.dtb
+	
+# HTC msm8996 device dtbs
+dtb-$(CONFIG_ARCH_MSM8996) += \
+	msm8996-v3-htc_pme-pvt.dtb \
+	msm8996-v3-htc_pme-xc.dtb \
+	msm8996-v3-htc_pme-xb.dtb \
+	msm8996-v3-htc_pme-xa.dtb \
+	msm8996-v2-htc_pme-xb.dtb \
+	msm8996-v2-htc_pme-xa.dtb \
+	msm8996-v2-htc_evm.dtb \
+	msm8996-v3-htc_pmeuhljapan-xa.dtb \
+	msm8996-v3-htc_pmeuhljapan-xb.dtb \
+	msm8996-v3-htc_pmewhl-xd.dtb \
+	msm8996-v3-htc_pmewhl-pvt.dtb \
+	msm8996-v3-htc_pmeuhljapan-pvt.dtb \
+	msm8996pro-v1.1-htc_oce-xa.dtb \
+	msm8996pro-v1.1-htc_oce-xb.dtb \
+	msm8996pro-v1.1-htc_oce-xc.dtb \
+	msm8996pro-v1.1-htc_oce-pvt.dtb 
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
