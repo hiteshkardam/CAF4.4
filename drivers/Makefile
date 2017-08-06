@@ -184,6 +184,9 @@ obj-$(CONFIG_SENSORS_SSC)	+= sensors/
 obj-$(CONFIG_ESOC)              += esoc/
 # htc_ril driver
 obj-y += htc_ril/
+
+# <t-base drivers
+obj-$(CONFIG_TRUSTONIC_TEE)	+= gud/
 #HTC LogLevel
 obj-$(CONFIG_HTC_LOGLEVEL)      += htc_loglevel/
 #HTC Security
