@@ -376,19 +376,19 @@ static int fw_get_filesystem_firmware(struct device *device,
 				      struct firmware_buf *buf,
 				      phys_addr_t dest_addr, size_t dest_size)
 {
-	int i, len;
+	int i;
 	int rc = -ENOENT;
-	char *path;
-	path = __getname();
+	char *path = __getname();
+	
+//++ Modem BSP, support dynamic modem image switch
+	const char* radio_image_select_path = "/dev/block/bootdevice/by-name/fsc";
+	//const char* radio_image_select_path = "dev/block/mmcblk0p45";
 
-        //++ Modem BSP, support dynamic modem image switch
-        const char* radio_image_select_path = "/dev/block/bootdevice/by-name/fsc";
-        //const char* radio_image_select_path = "dev/block/mmcblk0p45";
-        const int fsc_offset = 532; // 512+20 Byte
-        static char radio_image_info[4] = "";
-        static bool is_first = true;
-        struct file *fsc_file;
-        //-- Modem BSP
+    const int fsc_offset = 532; // 512+20 Byte
+    static char radio_image_info[4] = "";
+    static bool is_first = true;
+    struct file *fsc_file;
+//-- Modem BSP
 
 	if (!path)
 		return -ENOMEM;

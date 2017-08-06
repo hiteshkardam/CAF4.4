@@ -1,5 +1,4 @@
-&ts_intr_active
-{
+&ts_intr_active{
 	mux {
 		pins = "gpio125";
 		function = "gpio";
@@ -11,8 +10,8 @@
 		bias-pull-up;
 	};
 };
-&ts_intr_suspend
-{
+
+&ts_intr_suspend{
 	mux {
 		pins = "gpio125";
 		function = "gpio";
@@ -39,8 +38,8 @@
 		output-high;
 	};
 };
-&ts_rst_suspend
-{
+
+&ts_rst_suspend{
 	mux {
 		pins = "gpio89";
 		function = "gpio";

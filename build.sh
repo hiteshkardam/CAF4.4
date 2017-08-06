@@ -8,9 +8,9 @@
   today=$(date +"%m_%d_%Y")
 
 # Clean old builds
-   echo "Clean"
-     rm -rf $k/out
-     make clean
+#   echo "Clean"
+#     rm -rf $k/out
+#     make clean
 
 # Setup the build
  cd $k/arch/arm64/configs/BBKconfigs
@@ -35,7 +35,7 @@ export ARCH=arm64
 export SUBARCH=arm64
 
 # make mrproper
-make CROSS_COMPILE=$TOOLCHAIN -j`grep 'processor' /proc/cpuinfo | wc -l` mrproper
+#make CROSS_COMPILE=$TOOLCHAIN -j`grep 'processor' /proc/cpuinfo | wc -l` mrproper
  
 # remove backup files
 find ./ -name '*~' | xargs rm
