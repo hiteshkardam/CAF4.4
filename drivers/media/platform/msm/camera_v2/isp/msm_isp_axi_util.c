@@ -16,6 +16,10 @@
 #include "msm_isp_stats_util.h"
 #include "msm_isp_axi_util.h"
 #include "msm_isp48.h"
+//HTC_START, count sensor fps
+#include <linux/time.h>
+#define SENSOR_ISP_MAX 2
+//HTC_END
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
@@ -1033,6 +1037,12 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	struct msm_vfe_sof_info *sof_info = NULL, *self_sof = NULL;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	unsigned long flags;
+	//HTC_START, count sensor fps
+	static struct timeval m_last[SENSOR_ISP_MAX];
+	struct timeval m_curr;
+	static uint32_t last_frame_id[SENSOR_ISP_MAX];
+	uint32_t time_diff = 0;
+	//HTC_END
 
 	memset(&event_data, 0, sizeof(event_data));
 
@@ -1043,6 +1053,32 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 				pr_err("%s: PIX0 frame id: %u\n", __func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 			vfe_dev->isp_sof_debug++;
+
+			//HTC_START, count sensor fps
+			if ((vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id < 3)|| (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 10))
+			{
+				pr_info("[CAM]%s:(%d)PIX0 frame id: %u\n", __func__, vfe_dev->pdev->id, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+			}
+
+			if(vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 1)   //reset
+			{
+				do_gettimeofday(&m_last[vfe_dev->pdev->id]);
+				last_frame_id[vfe_dev->pdev->id] = 1;
+				pr_info("[CAM]%s:(%d)PIX0 frame id: %u, reset fps\n", __func__, vfe_dev->pdev->id, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+			}
+			else
+			{
+				do_gettimeofday(&m_curr);
+				time_diff = (m_curr.tv_sec-m_last[vfe_dev->pdev->id].tv_sec)*1000000 + (m_curr.tv_usec-m_last[vfe_dev->pdev->id].tv_usec);
+				if(time_diff >= 1000000)   //1s
+				{
+					pr_info("[CAM]%s:(%d)PIX0 frame id: %u, fps: %d\n", __func__, vfe_dev->pdev->id, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id, (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id-last_frame_id[vfe_dev->pdev->id]));
+					m_last[vfe_dev->pdev->id] = m_curr;
+					last_frame_id[vfe_dev->pdev->id] = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+				}
+			}
+			//HTC_END
+
 		} else if (frame_src == VFE_RAW_0) {
 			if (vfe_dev->isp_raw0_debug < ISP_SOF_DEBUG_COUNT)
 				pr_err("%s: RAW_0 frame id: %u\n", __func__,
