@@ -204,6 +204,8 @@ source "drivers/hwtracing/stm/Kconfig"
 
 source "drivers/hwtracing/intel_th/Kconfig"
 
+source "drivers/htc_debug/stability/Kconfig"
+
 source "drivers/fpga/Kconfig"
 
 source "drivers/firmware/Kconfig"
