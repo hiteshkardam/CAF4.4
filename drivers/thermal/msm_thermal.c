@@ -3153,6 +3153,8 @@ static int __ref update_offline_cores(int val)
 		}
 	}
 
+	pr_info("cpus_offlined: %d\n", cpus_offlined);
+
 	if (pend_hotplug_req && !in_suspend && !retry_in_progress) {
 		retry_in_progress = true;
 		schedule_delayed_work(&retry_hotplug_work,
