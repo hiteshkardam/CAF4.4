@@ -9665,7 +9665,7 @@ struct afe_clk_set {
 	 * for enable and disable clock.
 	 *	"clk_freq_in_hz", "clk_attri", and "clk_root"
 	 *	are ignored in disable clock case.
-	 *	@values 
+	 *	@values?
 	 *	- 0 -- Disabled
 	 *	- 1 -- Enabled  @tablebulletend
 	 */
@@ -10011,6 +10011,34 @@ struct afe_svc_cmd_set_clip_bank_selection {
 #define AFE_PARAM_ID_GROUP_DEVICE_CFG	0x00010255
 #define AFE_PARAM_ID_GROUP_DEVICE_ENABLE 0x00010256
 #define AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX	0x1102
+
+//HTC_AUD_START
+#define AFE_MODULE_ADAPTIVE_AUDIO_M1     0x10000030
+#define AFE_MODULE_ADAPTIVE_AUDIO_M2     0x1000002A
+#define AFE_MODULE_ONEDOTONE_AUDIO       0x10000035
+#define AFE_MODULE_ID_MISC_EFFECT        0x10030001
+
+#define AFE_PARAM_ID_ADAPTIVE_AUDIO_M1_EN     0x10000032
+#define AFE_PARAM_ID_ADAPTIVE_AUDIO_M1_CONF_L 0x10000033
+#define AFE_PARAM_ID_ADAPTIVE_AUDIO_M1_CONF_R 0x10000034
+#define AFE_PARAM_ID_ADAPTIVE_AUDIO_M2_EN     0x1000002C
+#define AFE_PARAM_ID_ADAPTIVE_AUDIO_M2_CONF   0x1000002D
+#define AFE_PARAM_ID_ONEDOTONE_AUDIO_EN       0x10000037
+#define AFE_PARAM_ID_MISC_SET_ACOUSTIC_SHOCK_RAMP 0x10030101
+#define AFE_PARAM_ID_MISC_SET_ACOUSTIC_SHOCK_MUTE 0x10030111
+
+
+#define AFE_COPP_ID_ONEDOTONE_AUDIO           0x10000001
+#define AFE_COPP_ID_ADAPTIVE_AUDIO            0x10000004
+
+#define HTC_POPP_TOPOLOGY				0x10000002
+#define HTC_POPP_HD_TOPOLOGY				0x10000003
+struct asm_params {
+	struct apr_hdr	hdr;
+	struct asm_stream_cmd_set_pp_params_v2 param;
+	struct asm_stream_param_data_v2 data;
+} __packed;
+//HTC_AUD_END
 
 /*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_CFG
  * parameter, which configures max of 8 AFE ports

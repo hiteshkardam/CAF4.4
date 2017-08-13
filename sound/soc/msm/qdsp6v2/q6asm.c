@@ -43,6 +43,7 @@
 
 #define TRUE        0x01
 #define FALSE       0x00
+#define FRAME_NUM             (8)
 #define SESSION_MAX 8
 #define ASM_MAX_CHANNELS 8
 enum {
@@ -1340,6 +1341,8 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 			pr_debug("%s: buffer already allocated\n", __func__);
 			return 0;
 		}
+		if (bufcnt != FRAME_NUM)
+			goto fail;
 		mutex_lock(&ac->cmd_lock);
 		if (bufcnt > (U32_MAX/sizeof(struct audio_buffer))) {
 			pr_err("%s: Buffer size overflows", __func__);
@@ -2550,6 +2553,9 @@ static int __q6asm_open_read(struct audio_client *ac,
 	if (!rc) {
 		pr_err("%s: timeout. waited for open read\n",
 				__func__);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		rc = -ETIMEDOUT;
 		goto fail_cmd;
 	}
@@ -2703,6 +2709,9 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format,
 		pr_err("%s: timeout. waited for OPEN_WRITE_COMPR rc[%d]\n",
 			__func__, rc);
 		rc = -ETIMEDOUT;
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		goto fail_cmd;
 	}
 
@@ -2856,6 +2865,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
 	if (!rc) {
 		pr_err("%s: timeout. waited for open write\n", __func__);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		rc = -ETIMEDOUT;
 		goto fail_cmd;
 	}
@@ -3120,6 +3132,9 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 	if (!rc) {
 		pr_err("%s: timeout. waited for open read-write\n",
 				__func__);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		rc = -ETIMEDOUT;
 		goto fail_cmd;
 	}
@@ -6389,6 +6404,9 @@ int q6asm_memory_map(struct audio_client *ac, phys_addr_t buf_add, int dir,
 	if (!rc) {
 		pr_err("%s: timeout. waited for memory_map\n", __func__);
 		rc = -ETIMEDOUT;
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		kfree(buffer_node);
 		goto fail_cmd;
 	}
@@ -6466,6 +6484,9 @@ int q6asm_memory_unmap(struct audio_client *ac, phys_addr_t buf_add, int dir)
 	if (!rc) {
 		pr_err("%s: timeout. waited for memory_unmap of handle 0x%x\n",
 			__func__, mem_unmap.mem_map_handle);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		rc = -ETIMEDOUT;
 		goto fail_cmd;
 	} else if (atomic_read(&ac->mem_state) > 0) {
@@ -6611,6 +6632,9 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		pr_err("%s: timeout. waited for memory_map\n", __func__);
 		rc = -ETIMEDOUT;
 		kfree(buffer_node);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		goto fail_cmd;
 	}
 	if (atomic_read(&ac->mem_state) > 0) {
@@ -6700,6 +6724,9 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir)
 		pr_err("%s: timeout. waited for memory_unmap of handle 0x%x\n",
 			__func__, mem_unmap.mem_map_handle);
 		rc = -ETIMEDOUT;
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		goto fail_cmd;
 	} else if (atomic_read(&ac->mem_state) > 0) {
 		pr_err("%s: DSP returned error[%s]\n",
@@ -6886,6 +6913,9 @@ int q6asm_set_multich_gain(struct audio_client *ac, uint32_t channels,
 		pr_err("%s: timeout, set-params paramid[0x%x]\n", __func__,
 				multich_gain.data.param_id);
 		rc = -EINVAL;
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		goto done;
 	}
 	if (atomic_read(&ac->cmd_state_pp) > 0) {
@@ -8805,33 +8835,33 @@ static int __q6asm_cmd(struct audio_client *ac, int cmd, uint32_t stream_id)
 			__func__, hdr.token, stream_id, ac->session);
 	switch (cmd) {
 	case CMD_PAUSE:
-		pr_debug("%s: CMD_PAUSE\n", __func__);
+		pr_info("%s:q6asm CMD_PAUSE session %d\n", __func__,ac->session); 
 		hdr.opcode = ASM_SESSION_CMD_PAUSE;
 		state = &ac->cmd_state;
 		break;
 	case CMD_SUSPEND:
-		pr_debug("%s: CMD_SUSPEND\n", __func__);
+		pr_info("%s:q6asm CMD_SUSPEND session %d\n", __func__,ac->session); 
 		hdr.opcode = ASM_SESSION_CMD_SUSPEND;
 		state = &ac->cmd_state;
 		break;
 	case CMD_FLUSH:
-		pr_debug("%s: CMD_FLUSH\n", __func__);
+		pr_info("%s:q6asm CMD_FLUSH session %d\n", __func__,ac->session); 
 		hdr.opcode = ASM_STREAM_CMD_FLUSH;
 		state = &ac->cmd_state;
 		break;
 	case CMD_OUT_FLUSH:
-		pr_debug("%s: CMD_OUT_FLUSH\n", __func__);
+		pr_info("%s: CMD_OUT_FLUSH\n", __func__); 
 		hdr.opcode = ASM_STREAM_CMD_FLUSH_READBUFS;
 		state = &ac->cmd_state;
 		break;
 	case CMD_EOS:
-		pr_debug("%s: CMD_EOS\n", __func__);
+		pr_info("%s:q6asm session %d send EOS \n", __func__,ac->session); 
 		hdr.opcode = ASM_DATA_CMD_EOS;
 		atomic_set(&ac->cmd_state, 0);
 		state = &ac->cmd_state;
 		break;
 	case CMD_CLOSE:
-		pr_debug("%s: CMD_CLOSE\n", __func__);
+		pr_info("%s:q6asm close session %d\n", __func__,ac->session); 
 		hdr.opcode = ASM_STREAM_CMD_CLOSE;
 		state = &ac->cmd_state;
 		break;
@@ -8854,6 +8884,9 @@ static int __q6asm_cmd(struct audio_client *ac, int cmd, uint32_t stream_id)
 	if (!rc) {
 		pr_err("%s: timeout. waited for response opcode[0x%x]\n",
 				__func__, hdr.opcode);
+#ifdef CONFIG_HTC_DEBUG_DSP
+		BUG();
+#endif
 		rc = -ETIMEDOUT;
 		goto fail_cmd;
 	}
@@ -8936,15 +8969,15 @@ static int __q6asm_cmd_nowait(struct audio_client *ac, int cmd,
 			__func__, hdr.token, stream_id, ac->session);
 	switch (cmd) {
 	case CMD_PAUSE:
-		pr_debug("%s: CMD_PAUSE\n", __func__);
+		pr_info("%s: CMD_PAUSE\n", __func__); 
 		hdr.opcode = ASM_SESSION_CMD_PAUSE;
 		break;
 	case CMD_EOS:
-		pr_debug("%s: CMD_EOS\n", __func__);
+		pr_info("%s: CMD_EOS\n", __func__); 
 		hdr.opcode = ASM_DATA_CMD_EOS;
 		break;
 	case CMD_CLOSE:
-		pr_debug("%s: CMD_CLOSE\n", __func__);
+		pr_info("%s: CMD_CLOSE\n", __func__); 
 		hdr.opcode = ASM_STREAM_CMD_CLOSE;
 		break;
 	default:

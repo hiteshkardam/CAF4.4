@@ -214,6 +214,13 @@ obj-$(CONFIG_SND_SOC_MSM_HDMI_CODEC_RX) := msm_hdmi_codec_rx.o
 snd-soc-max9877-objs := max9877.o
 snd-soc-tpa6130a2-objs := tpa6130a2.o
 snd-soc-tas2552-objs := tas2552.o
+#HTC_AUD_START
+snd-soc-rt5503-objs := rt5503.o rt5503-regmap.o
+obj-$(CONFIG_SND_SOC_RT5503)	+= snd-soc-rt5503.o
+ifdef CONFIG_HTC_DEBUG_DSP
+CFLAGS_wcd-mbhc-v2.o :=-DDEBUG
+endif
+#HTC_AUD_END
 
 obj-$(CONFIG_SND_SOC_88PM860X)	+= snd-soc-88pm860x.o
 obj-$(CONFIG_SND_SOC_AB8500_CODEC)	+= snd-soc-ab8500-codec.o
@@ -427,3 +434,8 @@ obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 obj-y += sdm660_cdc/
 obj-y += msm_sdw/
+
+#HTC_AUD_START
+obj-$(CONFIG_SND_SOC_TFA98XX) += tfa/
+#HTC_AUD_END
+
