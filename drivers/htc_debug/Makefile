@@ -1,2 +1,2 @@
 obj-y += stability/
-obj-y += partition/
+obj-y += storage/
